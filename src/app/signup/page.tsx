@@ -9,6 +9,8 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui/Toast';
 import { useWorkspace } from '@/context/WorkspaceContext';
 
+import { getOrCreateUserWorkspace } from '@/lib/supabase/prospects';
+
 export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -53,6 +55,13 @@ export default function SignupPage() {
         return;
       }
 
+      if (data.user && !data.session) {
+        toast.info(
+          'Account created! If your email requires confirmation, please verify it before signing in.',
+          'Account Registered'
+        );
+      }
+
       setStep('workspace');
     } catch (err: any) {
       toast.error(err?.message || 'Registration failed', 'Error');
@@ -61,24 +70,47 @@ export default function SignupPage() {
     }
   };
 
-  const handleWorkspaceSubmit = (e: React.FormEvent) => {
+  const handleWorkspaceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!festName.trim() || !collegeName.trim()) {
       toast.error('Fest name and College name are required', 'Validation Error');
       return;
     }
 
-    updateWorkspaceDetails({
-      event_name: festName.trim(),
-      name: `${festName.trim()} Sponsorship Hub`,
-      institution_name: collegeName.trim(),
-      expected_attendance: Number(expectedAttendance) || 10000,
-      event_description: festDescription.trim() || 'Annual college flagship festival',
-      contact_email: email || 'sponsorship@fest.edu',
-    });
+    setLoading(true);
+    const supabase = createClient();
 
-    toast.success('Workspace created successfully! Welcome to SponsorDesk.', 'Workspace Initialized');
-    router.push('/dashboard');
+    try {
+      if (supabase) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await getOrCreateUserWorkspace(supabase, user, {
+            event_name: festName.trim(),
+            name: `${festName.trim()} Sponsorship Hub`,
+            institution_name: collegeName.trim(),
+            expected_attendance: Number(expectedAttendance) || 10000,
+            event_description: festDescription.trim() || 'Annual college flagship festival',
+            contact_email: email || 'sponsorship@fest.edu',
+          });
+        }
+      }
+
+      updateWorkspaceDetails({
+        event_name: festName.trim(),
+        name: `${festName.trim()} Sponsorship Hub`,
+        institution_name: collegeName.trim(),
+        expected_attendance: Number(expectedAttendance) || 10000,
+        event_description: festDescription.trim() || 'Annual college flagship festival',
+        contact_email: email || 'sponsorship@fest.edu',
+      });
+
+      toast.success('Workspace created successfully! Welcome to SponsorDesk.', 'Workspace Initialized');
+      router.push('/dashboard');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to initialize workspace in Supabase', 'Database Error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -235,7 +267,7 @@ export default function SignupPage() {
                 />
               </div>
 
-              <Button type="submit" className="w-full mt-2">
+              <Button type="submit" className="w-full mt-2" loading={loading} disabled={loading}>
                 Launch Workspace
               </Button>
             </form>

@@ -27,7 +27,7 @@ import { Input, Select, Textarea } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
 
 export default function ProspectsPage() {
-  const { prospects, tiers, addProspect, updateProspect, deleteProspect, bulkImportProspects } =
+  const { prospects, tiers, addProspect, updateProspect, deleteProspect, bulkImportProspects, isDemoMode } =
     useWorkspace();
   const { toast } = useToast();
 
@@ -59,6 +59,7 @@ export default function ProspectsPage() {
   const [csvRawText, setCsvRawText] = useState('');
   const [csvParsedPreview, setCsvParsedPreview] = useState<Partial<Prospect>[]>([]);
   const [csvErrors, setCsvErrors] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Unique industries
   const industries = useMemo(() => {
@@ -87,43 +88,57 @@ export default function ProspectsPage() {
     });
   }, [prospects, stageFilter, industryFilter, search]);
 
-  const handleCreateProspect = (e: React.FormEvent) => {
+  const handleCreateProspect = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.company_name.trim()) {
       toast.error('Company name is required', 'Validation Error');
       return;
     }
 
-    addProspect({
-      company_name: formData.company_name.trim(),
-      industry: formData.industry.trim() || 'General',
-      contact_name: formData.contact_name.trim(),
-      contact_designation: formData.contact_designation.trim(),
-      email: formData.email.trim(),
-      phone: formData.phone.trim(),
-      website_url: formData.website_url.trim(),
-      stage: formData.stage,
-      tier_id: formData.tier_id || undefined,
-      expected_value: Number(formData.expected_value) || 0,
-      fit_rationale: formData.fit_rationale.trim(),
-      lead_source: 'Manual Directory',
-    });
+    setIsSubmitting(true);
+    try {
+      await addProspect({
+        company_name: formData.company_name.trim(),
+        industry: formData.industry.trim() || 'General',
+        contact_name: formData.contact_name.trim(),
+        contact_designation: formData.contact_designation.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        website_url: formData.website_url.trim(),
+        stage: formData.stage,
+        tier_id: formData.tier_id || undefined,
+        expected_value: Number(formData.expected_value) || 0,
+        fit_rationale: formData.fit_rationale.trim(),
+        lead_source: 'Manual Directory',
+      });
 
-    toast.success(`Added ${formData.company_name} to database`);
-    setIsAddOpen(false);
-    setFormData({
-      company_name: '',
-      industry: '',
-      contact_name: '',
-      contact_designation: '',
-      email: '',
-      phone: '',
-      website_url: '',
-      stage: 'lead',
-      tier_id: '',
-      expected_value: '',
-      fit_rationale: '',
-    });
+      if (isDemoMode) {
+        toast.info(
+          `Saved ${formData.company_name} to Demo Sandbox — not synced to Supabase. Sign in for live persistence.`,
+          'Demo Sandbox (Local Only)'
+        );
+      } else {
+        toast.success(`Saved ${formData.company_name} to Supabase database!`, 'Database Record Created');
+      }
+      setIsAddOpen(false);
+      setFormData({
+        company_name: '',
+        industry: '',
+        contact_name: '',
+        contact_designation: '',
+        email: '',
+        phone: '',
+        website_url: '',
+        stage: 'lead',
+        tier_id: '',
+        expected_value: '',
+        fit_rationale: '',
+      });
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save prospect to database', 'Database Error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // CSV Export
@@ -230,18 +245,29 @@ Boat Lifestyle,Consumer Audio,lead,Pooja Mehta,Campus Marketing,pooja@boat-sampl
     reader.readAsText(file);
   };
 
-  const handleConfirmImport = () => {
+  const handleConfirmImport = async () => {
     if (csvParsedPreview.length === 0) {
       toast.error('No valid prospects found in CSV');
       return;
     }
 
-    const res = bulkImportProspects(csvParsedPreview);
-    toast.success(`Successfully imported ${res.added} sponsors!`, 'CSV Import Complete');
-    setIsImportOpen(false);
-    setCsvParsedPreview([]);
-    setCsvErrors([]);
-    setCsvRawText('');
+    setIsSubmitting(true);
+    try {
+      const res = await bulkImportProspects(csvParsedPreview);
+      if (res.errors.length > 0 && res.added === 0) {
+        toast.error(`Import failed: ${res.errors[0]}`);
+      } else {
+        toast.success(`Successfully imported ${res.added} sponsors!`, 'CSV Import Complete');
+        setIsImportOpen(false);
+        setCsvParsedPreview([]);
+        setCsvErrors([]);
+        setCsvRawText('');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to import prospects', 'Import Error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -554,7 +580,7 @@ Boat Lifestyle,Consumer Audio,lead,Pooja Mehta,Campus Marketing,pooja@boat-sampl
             <Button type="button" variant="outline" size="sm" onClick={() => setIsAddOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" size="sm">
+            <Button type="submit" size="sm" loading={isSubmitting} disabled={isSubmitting}>
               Save Prospect
             </Button>
           </div>
@@ -647,7 +673,8 @@ Boat Lifestyle,Consumer Audio,lead,Pooja Mehta,Campus Marketing,pooja@boat-sampl
             </Button>
             <Button
               size="sm"
-              disabled={csvParsedPreview.length === 0}
+              disabled={csvParsedPreview.length === 0 || isSubmitting}
+              loading={isSubmitting}
               onClick={handleConfirmImport}
             >
               Import {csvParsedPreview.length} Sponsors

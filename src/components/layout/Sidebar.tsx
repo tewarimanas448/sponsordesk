@@ -36,7 +36,7 @@ const NAV_ITEMS = [
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { workspace, metrics, isDemoMode, resetToDemo } = useWorkspace();
+  const { workspace, metrics, isDemoMode, currentUser, resetToDemo } = useWorkspace();
 
   return (
     <>
@@ -136,21 +136,39 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="p-4 border-t border-slate-800 bg-slate-900/80">
           <div className="p-3 rounded-lg bg-slate-800/80 border border-slate-700/60">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-emerald-400 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                {isDemoMode ? 'Demo Sandbox' : 'Live Mode'}
+              <span className={cn(
+                'text-xs font-semibold flex items-center gap-1.5',
+                isDemoMode ? 'text-amber-400' : 'text-emerald-400'
+              )}>
+                <span className={cn(
+                  'w-2 h-2 rounded-full',
+                  isDemoMode ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'
+                )} />
+                {isDemoMode ? 'Demo Sandbox' : 'Live Supabase'}
               </span>
-              <button
-                onClick={resetToDemo}
-                className="text-[11px] text-slate-400 hover:text-indigo-300 underline font-medium transition-colors"
-                title="Reset sample data back to Vivacity 2026 default"
-              >
-                Reset Demo
-              </button>
+              {isDemoMode ? (
+                <button
+                  onClick={resetToDemo}
+                  className="text-[11px] text-slate-400 hover:text-indigo-300 underline font-medium transition-colors"
+                  title="Reset sample data back to Vivacity 2026 default"
+                >
+                  Reset
+                </button>
+              ) : null}
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              Sample data for LNMIIT Vivacity festival is active.
+              {isDemoMode
+                ? 'Sample Vivacity 2026 fest data (browser storage only).'
+                : `Synced with Supabase: ${currentUser?.email || 'Live Session'}`}
             </p>
+            {isDemoMode && (
+              <Link
+                href="/login"
+                className="mt-2 block text-center text-xs font-semibold py-1 px-2 rounded bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600/50 border border-indigo-500/40 transition-colors"
+              >
+                Sign In for Live Sync
+              </Link>
+            )}
           </div>
         </div>
       </aside>

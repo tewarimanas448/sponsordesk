@@ -2,7 +2,11 @@ node_modules/
 .next/
 .env
 .env.*
+.env*.local
+**/.env.local
+**/.env.*.local
 !.env.example
+!**/.env.example
 *.tsbuildinfo
 coverage/
 dist/

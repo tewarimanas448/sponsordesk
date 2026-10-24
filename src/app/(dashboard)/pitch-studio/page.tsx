@@ -31,7 +31,7 @@ export default function PitchStudioPage() {
   const searchParams = useSearchParams();
   const preselectedProspectId = searchParams?.get('prospectId');
 
-  const { workspace, prospects, tiers, savePitch, markPitchSent } = useWorkspace();
+  const { workspace, prospects, tiers, savePitch, markPitchSent, isDemoMode } = useWorkspace();
   const { toast } = useToast();
 
   // Selected prospect & tier
@@ -83,6 +83,13 @@ export default function PitchStudioPage() {
       return;
     }
 
+    if (!activeProspect.company_name?.trim()) {
+      toast.error('Selected prospect is missing a company name', 'Validation Error');
+      return;
+    }
+
+    const eventName = workspace.event_name?.trim() || workspace.name?.trim() || 'College Festival 2026';
+
     setIsGenerating(true);
     setCopied(false);
 
@@ -94,26 +101,30 @@ export default function PitchStudioPage() {
       if (modifier === 'more_persuasive') finalTone = 'persuasive';
 
       const payload = {
-        companyName: activeProspect.company_name,
-        industry: activeProspect.industry,
-        websiteUrl: activeProspect.website_url,
-        contactName: activeProspect.contact_name,
-        contactDesignation: activeProspect.contact_designation,
-        fitRationale: customCompanyContext || activeProspect.fit_rationale,
-        eventName: workspace.event_name,
-        eventDescription: workspace.event_description,
+        companyName: activeProspect.company_name.trim(),
+        industry: activeProspect.industry || undefined,
+        websiteUrl: activeProspect.website_url || undefined,
+        contactName: activeProspect.contact_name || undefined,
+        contactDesignation: activeProspect.contact_designation || undefined,
+        fitRationale: customCompanyContext?.trim() || activeProspect.fit_rationale || undefined,
+        eventName,
+        eventDescription: workspace.event_description || undefined,
         eventDates:
           workspace.event_start_date && workspace.event_end_date
             ? `${workspace.event_start_date} to ${workspace.event_end_date}`
             : undefined,
-        expectedAttendance: workspace.expected_attendance,
-        audienceDescription: workspace.audience_description,
-        tierName: activeTier?.name || 'Category Partner',
-        tierPrice: activeTier?.price,
+        expectedAttendance: workspace.expected_attendance ? Number(workspace.expected_attendance) : undefined,
+        audienceDescription: workspace.audience_description || undefined,
+        tierName: activeTier?.name || undefined,
+        tierPrice:
+          activeTier?.price !== undefined && activeTier?.price !== null
+            ? Number(activeTier.price)
+            : undefined,
         tierBenefits: activeTier?.benefits || [],
         channel,
         tone: finalTone,
-        customCallToAction: finalCta,
+        customCallToAction: finalCta?.trim() || undefined,
+        forceDemo: isDemoMode,
       };
 
       const res = await fetch('/api/ai/pitch', {
@@ -219,7 +230,7 @@ export default function PitchStudioPage() {
               <Sparkles className="w-6 h-6 text-indigo-600" />
               <span>AI Pitch Studio</span>
             </h2>
-            <Badge variant="indigo">Gemini 1.5 Flash</Badge>
+            <Badge variant="indigo">Gemini Flash</Badge>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
             Craft tailored, high-converting sponsorship outreach for Email, WhatsApp, and LinkedIn.

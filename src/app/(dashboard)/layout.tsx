@@ -11,7 +11,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const { isLoading } = useWorkspace();
+  const { isLoading, syncError } = useWorkspace();
 
   if (isLoading) {
     return (
@@ -29,7 +29,18 @@ export default function DashboardLayout({
       <Sidebar isOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0">
         <Header onOpenMobileNav={() => setMobileNavOpen(true)} />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-4">
+          {syncError && (
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-bold uppercase tracking-wider text-[10px] px-1.5 py-0.5 rounded bg-rose-200 text-rose-900">
+                  Supabase Sync Error
+                </span>
+                <span>{syncError}</span>
+              </div>
+              <span className="hidden sm:inline text-rose-600 font-medium">Changes cannot be persisted until resolved</span>
+            </div>
+          )}
           {children}
         </main>
       </div>

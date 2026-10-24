@@ -39,7 +39,7 @@ const ALL_STAGES: PipelineStage[] = [
 ];
 
 export default function PipelinePage() {
-  const { prospects, tiers, updateProspectStage, addProspect } = useWorkspace();
+  const { prospects, tiers, updateProspectStage, addProspect, isDemoMode } = useWorkspace();
   const { toast } = useToast();
 
   // Search & Filter state
@@ -65,6 +65,7 @@ export default function PipelinePage() {
     expected_value: '',
     fit_rationale: '',
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Extract unique industries for filter
   const industries = useMemo(() => {
@@ -173,38 +174,52 @@ export default function PipelinePage() {
     setIsAddOpen(true);
   };
 
-  const handleSaveNewProspect = (e: React.FormEvent) => {
+  const handleSaveNewProspect = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.company_name.trim()) {
       toast.error('Company name is required', 'Validation Error');
       return;
     }
 
-    addProspect({
-      company_name: formData.company_name.trim(),
-      industry: formData.industry.trim() || 'General',
-      contact_name: formData.contact_name.trim(),
-      email: formData.email.trim(),
-      phone: formData.phone.trim(),
-      tier_id: formData.tier_id || undefined,
-      expected_value: Number(formData.expected_value) || 0,
-      fit_rationale: formData.fit_rationale.trim(),
-      stage: newStageTarget,
-      lead_source: 'Pipeline Direct',
-    });
+    setIsSubmitting(true);
+    try {
+      await addProspect({
+        company_name: formData.company_name.trim(),
+        industry: formData.industry.trim() || 'General',
+        contact_name: formData.contact_name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        tier_id: formData.tier_id || undefined,
+        expected_value: Number(formData.expected_value) || 0,
+        fit_rationale: formData.fit_rationale.trim(),
+        stage: newStageTarget,
+        lead_source: 'Pipeline Direct',
+      });
 
-    toast.success(`Added ${formData.company_name} to ${STAGE_CONFIG[newStageTarget].label}`);
-    setIsAddOpen(false);
-    setFormData({
-      company_name: '',
-      industry: '',
-      contact_name: '',
-      email: '',
-      phone: '',
-      tier_id: '',
-      expected_value: '',
-      fit_rationale: '',
-    });
+      if (isDemoMode) {
+        toast.info(
+          `Saved ${formData.company_name} to Demo Sandbox — not synced to Supabase. Sign in for live persistence.`,
+          'Demo Sandbox (Local Only)'
+        );
+      } else {
+        toast.success(`Saved ${formData.company_name} to Supabase database!`, 'Database Record Created');
+      }
+      setIsAddOpen(false);
+      setFormData({
+        company_name: '',
+        industry: '',
+        contact_name: '',
+        email: '',
+        phone: '',
+        tier_id: '',
+        expected_value: '',
+        fit_rationale: '',
+      });
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save prospect to database', 'Database Error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const resetFilters = () => {
@@ -528,7 +543,7 @@ export default function PipelinePage() {
             <Button type="button" variant="outline" size="sm" onClick={() => setIsAddOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" size="sm">
+            <Button type="submit" size="sm" loading={isSubmitting} disabled={isSubmitting}>
               Save to Pipeline
             </Button>
           </div>
